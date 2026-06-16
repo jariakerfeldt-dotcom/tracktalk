@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
 const SUPABASE_URL = "https://lmohdksyqxwmcdomogcz.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxtb2hka3N5cXh3bWNkb21vZ2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDU2OTgsImV4cCI6MjA5NzE4MTY5OH0.TEUNmKOQLLM02B-6Y2yJN-JXGGyOScYRy9iPEWEchgU";
@@ -428,7 +428,9 @@ function DMView({ currentUser, t }) {
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 function RegisterModal({ onDone }) {
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState({ name:"", email:"", pass:"", cats:[] });
+  const [form, setForm] = useState({ name:"", email:"", pass:"", pass2:"", cats:[] });
+  const [showPass, setShowPass] = useState(false);
+  const [showPass2, setShowPass2] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
@@ -441,6 +443,7 @@ function RegisterModal({ onDone }) {
       if(!form.name||!form.email||!form.pass){setErr("Fyll i alla fält.");return;}
       if(!form.email.includes("@")){setErr("Ogiltig e-post.");return;}
       if(form.pass.length<6){setErr("Lösenord måste vara minst 6 tecken.");return;}
+      if(form.pass!==form.pass2){setErr("Lösenorden matchar inte.");return;}
       setLoading(true);
       const { data, error } = await supabase.auth.signUp({ email:form.email, password:form.pass, options:{ data:{ name:form.name } } });
       setLoading(false);
@@ -469,9 +472,19 @@ function RegisterModal({ onDone }) {
 
         {step===1&&<>
           <div style={{ textAlign:"center", marginBottom:16 }}><div style={{ fontSize:36 }}>🏇</div><h2 style={{ margin:"6px 0 2px", color:t.accent, fontWeight:800 }}>Skapa konto</h2><p style={{ color:t.text3, fontSize:13, margin:0 }}>Gå med i Sveriges travgemenskap</p></div>
-          {[["name","Namn / användarnamn","Ditt namn","text"],["email","E-postadress","din@email.se","email"],["pass","Lösenord","Minst 6 tecken","password"]].map(([k,lbl,ph,type])=>(
+          {[["name","Namn / användarnamn","Ditt namn","text"],["email","E-postadress","din@email.se","email"]].map(([k,lbl,ph,type])=>(
             <div key={k}><label style={{ fontSize:12, color:t.text3, marginBottom:4, display:"block", fontWeight:600 }}>{lbl}</label><input type={type} style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:10, padding:"10px 12px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:12 }} placeholder={ph} value={form[k]} onChange={e=>set(k,e.target.value)} /></div>
           ))}
+          <label style={{ fontSize:12, color:t.text3, marginBottom:4, display:"block", fontWeight:600 }}>Lösenord</label>
+          <div style={{ position:"relative", marginBottom:12 }}>
+            <input type={showPass?"text":"password"} style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:10, padding:"10px 40px 10px 12px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" }} placeholder="Minst 6 tecken" value={form.pass} onChange={e=>set("pass",e.target.value)} />
+            <button type="button" onClick={()=>setShowPass(s=>!s)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:16, color:t.text3 }}>{showPass?"🙈":"👁️"}</button>
+          </div>
+          <label style={{ fontSize:12, color:t.text3, marginBottom:4, display:"block", fontWeight:600 }}>Bekräfta lösenord</label>
+          <div style={{ position:"relative", marginBottom:12 }}>
+            <input type={showPass2?"text":"password"} style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:10, padding:"10px 40px 10px 12px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" }} placeholder="Skriv lösenordet igen" value={form.pass2} onChange={e=>set("pass2",e.target.value)} />
+            <button type="button" onClick={()=>setShowPass2(s=>!s)} style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:16, color:t.text3 }}>{showPass2?"🙈":"👁️"}</button>
+          </div>
         </>}
 
         {step===2&&<>
@@ -498,7 +511,7 @@ function RegisterModal({ onDone }) {
 }
 
 function LoginModal({ onLogin, onSwitch }) {
-  const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false); const t=DARK;
+  const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false); const [showLoginPass,setShowLoginPass]=useState(false); const t=DARK;
   const login = async () => {
     setLoading(true); setErr("");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password:pass });
@@ -513,7 +526,10 @@ function LoginModal({ onLogin, onSwitch }) {
         <label style={{ fontSize:12, color:t.text3, marginBottom:4, display:"block", fontWeight:600 }}>E-postadress</label>
         <input style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:12, padding:"12px 14px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:14 }} placeholder="din@email.se" value={email} onChange={e=>setEmail(e.target.value)} />
         <label style={{ fontSize:12, color:t.text3, marginBottom:4, display:"block", fontWeight:600 }}>Lösenord</label>
-        <input type="password" style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:12, padding:"12px 14px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box", marginBottom:8 }} placeholder="Ditt lösenord" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} />
+        <div style={{ position:"relative", marginBottom:8 }}>
+          <input type={showLoginPass?"text":"password"} style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:12, padding:"12px 40px 12px 14px", color:t.text, fontSize:15, outline:"none", boxSizing:"border-box" }} placeholder="Ditt lösenord" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&login()} />
+          <button type="button" onClick={()=>setShowLoginPass(s=>!s)} style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:16, color:"#5A7A60" }}>{showLoginPass?"🙈":"👁️"}</button>
+        </div>
         {err&&<div style={{ color:"#E53935", fontSize:13, marginBottom:10, textAlign:"center" }}>{err}</div>}
         <button onClick={login} disabled={loading} style={{ width:"100%", marginTop:8, background:`linear-gradient(135deg,${t.accent},#E8C96A)`, border:"none", color:"#0A1A0F", fontWeight:800, padding:"14px", borderRadius:20, cursor:"pointer", fontSize:16, opacity:loading?0.7:1 }}>{loading?"Loggar in…":"Logga in"}</button>
         <div style={{ textAlign:"center", marginTop:14, color:t.text3, fontSize:13 }}>Inget konto? <span onClick={onSwitch} style={{ color:t.accent, cursor:"pointer", fontWeight:700 }}>Registrera dig gratis</span></div>
@@ -644,8 +660,8 @@ export default function TrackTalk() {
           </main>
           <aside style={{ width:260, flexShrink:0, paddingTop:16, paddingLeft:16, position:"sticky", top:56, height:"calc(100vh - 56px)", overflowY:"auto" }}>
             <div style={{ fontSize:12, fontWeight:700, color:t.text3, marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Trendande 🔥</div>
-            {posts.slice(0,5).map((p,i)=>{
-              const cat = CATEGORIES.find(c=>c.id===p.ca                <div key={tag} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
+            {["#V75Solvalla","#ATGLive","#Elitloppet","#Andelspel","#GaloppSolvalla"].map((tag,i)=>(
+              <div key={tag} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
                 <div style={{ fontWeight:700, fontSize:14, color:t.accent }}>{tag}</div>
                 <div style={{ fontSize:11, color:t.text3 }}>{[2341,1892,984,451,312][i].toLocaleString()} inlägg</div>
               </div>
