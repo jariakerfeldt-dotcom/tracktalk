@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://lmohdksyqxwmcdomogcz.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxtb2hka3N5cXh3bWNkb21vZ2N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDU2OTgsImV4cCI6MjA5NzE4MTY5OH0.TEUNmKOQLLM02B-6Y2yJN-JXGGyOScYRy9iPEWEchgU";
@@ -644,8 +644,8 @@ export default function TrackTalk() {
           </main>
           <aside style={{ width:260, flexShrink:0, paddingTop:16, paddingLeft:16, position:"sticky", top:56, height:"calc(100vh - 56px)", overflowY:"auto" }}>
             <div style={{ fontSize:12, fontWeight:700, color:t.text3, marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Trendande 🔥</div>
-            {["#V75Solvalla","#ATGLive","#Elitloppet","#Andelspel","#GaloppSolvalla"].map((tag,i)=>(
-              <div key={tag} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
+            {posts.slice(0,5).map((p,i)=>{
+              const cat = CATEGORIES.find(c=>c.id===p.ca                <div key={tag} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
                 <div style={{ fontWeight:700, fontSize:14, color:t.accent }}>{tag}</div>
                 <div style={{ fontSize:11, color:t.text3 }}>{[2341,1892,984,451,312][i].toLocaleString()} inlägg</div>
               </div>
