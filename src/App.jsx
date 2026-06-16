@@ -28,6 +28,43 @@ const GIF_LIST = [
 const avatarColors = ["#C9A84C","#4CAF50","#2196F3","#00897B","#E53935","#8E24AA","#FB8C00","#607D8B"];
 const avatarColor = (s) => avatarColors[(s||"X").charCodeAt(0) % avatarColors.length];
 
+// ─── AVATAR UPLOAD ───────────────────────────────────────────────────────────
+function Avatar({ user, size=40, onClick, uploadable=false, onUpload, t }) {
+  const fileRef = useRef();
+  const [uploading, setUploading] = useState(false);
+  const fontSize = size < 36 ? 10 : size < 50 ? 13 : 20;
+  const content = user?.avatar_url
+    ? <img src={user.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} />
+    : <span style={{ fontSize, fontWeight:700, color:"#0A1A0F" }}>{user?.avatar||"?"}</span>;
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if(!file || !user?.id) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `avatars/${user.id}.${ext}`;
+    await supabase.storage.from("media").upload(path, file, { upsert:true });
+    const { data:{ publicUrl } } = supabase.storage.from("media").getPublicUrl(path);
+    await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+    if(onUpload) onUpload(publicUrl);
+    setUploading(false);
+  };
+
+  return (
+    <div onClick={uploadable ? ()=>fileRef.current.click() : onClick}
+      style={{ width:size, height:size, borderRadius:"50%", background:avatarColor(user?.avatar||"?"), display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, cursor:uploadable||onClick?"pointer":"default", overflow:"hidden", position:"relative" }}>
+      {content}
+      {uploadable && (
+        <div style={{ position:"absolute", inset:0, background:"#0006", display:"flex", alignItems:"center", justifyContent:"center", borderRadius:"50%", opacity:0, transition:"opacity 0.2s" }}
+          onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=0}>
+          <span style={{ color:"#fff", fontSize:18 }}>{uploading?"⏳":"📷"}</span>
+        </div>
+      )}
+      {uploadable && <input ref={fileRef} type="file" accept="image/*" style={{ display:"none" }} onChange={handleUpload} />}
+    </div>
+  );
+}
+
 const DARK = {
   bg:"#0A1A0F", surface:"#0D2818", surface2:"#0F2215", border:"#1E3A24",
   border2:"#2A4030", text:"#F5F0E8", text2:"#A0B8A5", text3:"#5A7A60",
@@ -183,7 +220,7 @@ function ComposeBox({ onPost, currentUser, t }) {
   return (
     <div style={{ padding:"14px 16px", borderBottom:`1px solid ${t.border}`, background:t.surface }}>
       <div style={{ display:"flex", gap:10 }}>
-        <div style={{ width:38, height:38, borderRadius:"50%", background:avatarColor(currentUser?.avatar||"ME"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#0A1A0F", flexShrink:0 }}>{currentUser?.avatar||"ME"}</div>
+        <Avatar user={currentUser} size={38} />
         <div style={{ flex:1, minWidth:0 }}>
           <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Vad händer i travvärlden?" style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:12, padding:"10px 12px", color:t.text, fontSize:15, resize:"none", minHeight:70, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
           {mediaFiles.length>0 && (
@@ -246,7 +283,7 @@ function Post({ post, currentUser, t, onProfile }) {
     <div style={{ borderBottom:`1px solid ${t.border}`, padding:"14px 16px", background:t.bg, transition:"background 0.1s" }}
       onMouseEnter={e=>e.currentTarget.style.background=t.surface2} onMouseLeave={e=>e.currentTarget.style.background=t.bg}>
       <div style={{ display:"flex", gap:10 }}>
-        <div onClick={()=>onProfile&&onProfile(post.author)} style={{ width:40, height:40, borderRadius:"50%", background:avatarColor(post.avatar), display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:"#0A1A0F", flexShrink:0, cursor:"pointer" }}>{post.avatar}</div>
+        <Avatar user={{avatar:post.avatar, avatar_url:post.avatar_url||null}} size={40} onClick={()=>onProfile&&onProfile(post.author)} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap", marginBottom:4 }}>
             <span onClick={()=>onProfile&&onProfile(post.author)} style={{ fontWeight:700, fontSize:14, cursor:"pointer", color:t.text }}>{post.author}</span>
@@ -349,7 +386,12 @@ function ProfileView({ username, currentUser, t, onBack }) {
       <div style={{ background:`linear-gradient(135deg, #0D3020, #1A4A2A)`, height:90 }} />
       <div style={{ padding:"0 16px 16px", background:t.surface, borderBottom:`1px solid ${t.border}` }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginTop:-24 }}>
-          <div style={{ width:64, height:64, borderRadius:"50%", background:avatarColor(avatar), display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, fontWeight:800, color:"#0A1A0F", border:`3px solid ${t.surface}` }}>{avatar}</div>
+          <div style={{ border:`3px solid ${t.surface}`, borderRadius:"50%" }}>
+            <Avatar user={profile||{avatar:username.slice(0,2).toUpperCase(), avatar_url:null}} size={64}
+              uploadable={username===currentUser?.name}
+              onUpload={(url)=>setProfile(p=>({...p, avatar_url:url}))}
+              t={t} />
+          </div>
           {username !== currentUser?.name && (
             <button onClick={()=>setFollowing(f=>!f)} style={{ background:following?t.accentBg:t.accent, border:`1px solid ${t.accent}`, color:following?t.accent:"#0A1A0F", fontWeight:700, padding:"8px 20px", borderRadius:20, cursor:"pointer", fontSize:14 }}>{following?"Följer ✓":"Följ"}</button>
           )}
@@ -592,8 +634,8 @@ export default function TrackTalk() {
       else {
         const name = auth.user_metadata?.name || auth.email.split("@")[0];
         const avatar = name.slice(0,2).toUpperCase();
-        supabase.from("profiles").insert({ id:auth.id, name, avatar, handle:`@${name.toLowerCase().replace(/\s/g,"_")}` }).then(()=>{
-          setProfile({ id:auth.id, name, avatar });
+        supabase.from("profiles").insert({ id:auth.id, name, avatar, handle:`@${name.toLowerCase().replace(/\s/g,"_")}`, avatar_url:null }).then(()=>{
+          setProfile({ id:auth.id, name, avatar, avatar_url:null });
         });
       }
     });
@@ -658,7 +700,7 @@ export default function TrackTalk() {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8, position:"relative" }}>
           <button onClick={()=>setIsDark(d=>!d)} style={{ background:"none", border:`1px solid ${t.border2}`, borderRadius:20, padding:"5px 10px", cursor:"pointer", fontSize:16, color:t.text3 }}>{isDark?"☀️":"🌙"}</button>
-          <div onClick={()=>{setProfileUser(profile?.name);setTab("me");}} style={{ width:32, height:32, borderRadius:"50%", background:avatarColor(profile?.avatar||"ME"), display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#0A1A0F", cursor:"pointer" }}>{profile?.avatar||"ME"}</div>
+          <Avatar user={profile} size={32} onClick={()=>{setProfileUser(profile?.name);setTab("me");}} />
           <button onClick={async()=>{ await supabase.auth.signOut(); setAuth(null); setProfile(null); }} style={{ background:"none", border:`1px solid ${t.border2}`, color:t.text3, borderRadius:8, padding:"5px 10px", cursor:"pointer", fontSize:12 }}>Logga ut</button>
         </div>
       </header>
