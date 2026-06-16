@@ -273,12 +273,16 @@ function Post({ post, currentUser, t, onProfile }) {
 
 function SearchView({ t, currentUser, onProfile }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
+  const [postResults, setPostResults] = useState([]);
+  const [userResults, setUserResults] = useState([]);
+  const [searchTab, setSearchTab] = useState("posts"); // posts | users
   useEffect(()=>{
-    if(query.length < 2){ setResults([]); return; }
+    if(query.length < 2){ setPostResults([]); setUserResults([]); return; }
     const timer = setTimeout(async ()=>{
-      const { data } = await supabase.from("posts").select("*").or(`content.ilike.%${query}%,author.ilike.%${query}%,category.ilike.%${query}%`).order("created_at", { ascending:false }).limit(20);
-      if(data) setResults(data);
+      const { data: posts } = await supabase.from("posts").select("*").or(`content.ilike.%${query}%,author.ilike.%${query}%,category.ilike.%${query}%`).order("created_at", { ascending:false }).limit(20);
+      if(posts) setPostResults(posts);
+      const { data: users } = await supabase.from("profiles").select("*").or(`name.ilike.%${query}%,handle.ilike.%${query}%,bio.ilike.%${query}%`).limit(10);
+      if(users) setUserResults(users);
     }, 400);
     return ()=>clearTimeout(timer);
   },[query]);
@@ -299,8 +303,28 @@ function SearchView({ t, currentUser, onProfile }) {
           ))}
         </div>
       )}
-      {query.length >= 2 && results.length === 0 && <div style={{ padding:40, textAlign:"center", color:t.text3 }}><div style={{ fontSize:40 }}>🔍</div><p>Inga resultat för "{query}"</p></div>}
-      {results.map(p=><Post key={p.id} post={p} currentUser={currentUser} t={t} onProfile={onProfile} />)}
+      {query.length >= 2 && (
+        <div>
+          <div style={{ display:"flex", borderBottom:`1px solid ${t.border}`, background:t.surface }}>
+            <button onClick={()=>setSearchTab("posts")} style={{ flex:1, padding:"10px", background:"none", border:"none", borderBottom:searchTab==="posts"?`2px solid ${t.accent}`:"2px solid transparent", color:searchTab==="posts"?t.accent:t.text3, fontWeight:searchTab==="posts"?700:400, cursor:"pointer", fontSize:14 }}>Inlägg ({postResults.length})</button>
+            <button onClick={()=>setSearchTab("users")} style={{ flex:1, padding:"10px", background:"none", border:"none", borderBottom:searchTab==="users"?`2px solid ${t.accent}`:"2px solid transparent", color:searchTab==="users"?t.accent:t.text3, fontWeight:searchTab==="users"?700:400, cursor:"pointer", fontSize:14 }}>Användare ({userResults.length})</button>
+          </div>
+          {searchTab==="posts" && postResults.length===0 && <div style={{ padding:40, textAlign:"center", color:t.text3 }}><div style={{ fontSize:40 }}>📝</div><p>Inga inlägg hittades</p></div>}
+          {searchTab==="posts" && postResults.map(p=><Post key={p.id} post={p} currentUser={currentUser} t={t} onProfile={onProfile} />)}
+          {searchTab==="users" && userResults.length===0 && <div style={{ padding:40, textAlign:"center", color:t.text3 }}><div style={{ fontSize:40 }}>👤</div><p>Inga användare hittades</p></div>}
+          {searchTab==="users" && userResults.map(u=>(
+            <div key={u.id} onClick={()=>onProfile&&onProfile(u.name)} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", borderBottom:`1px solid ${t.border}`, cursor:"pointer", background:t.bg }} onMouseEnter={e=>e.currentTarget.style.background=t.surface2} onMouseLeave={e=>e.currentTarget.style.background=t.bg}>
+              <div style={{ width:46, height:46, borderRadius:"50%", background:avatarColor(u.avatar||u.name?.slice(0,2)), display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:700, color:"#0A1A0F", flexShrink:0 }}>{u.avatar||u.name?.slice(0,2).toUpperCase()}</div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:700, fontSize:15, color:t.text }}>{u.name} {u.verified&&<span style={{ color:t.accent }}>✓</span>}</div>
+                <div style={{ fontSize:13, color:t.text3 }}>{u.handle}</div>
+                {u.bio&&<div style={{ fontSize:13, color:t.text2, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.bio}</div>}
+              </div>
+              <button onClick={e=>{e.stopPropagation();}} style={{ background:t.accentBg, border:`1px solid ${t.accent}44`, color:t.accent, borderRadius:20, padding:"6px 14px", cursor:"pointer", fontSize:13, fontWeight:600, flexShrink:0 }}>Följ</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
