@@ -370,9 +370,11 @@ function SearchView({ t, currentUser, onProfile }) {
       </div>
       {query.length < 2 && (
         <div style={{ padding:20 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:t.text3, marginBottom:12, textTransform:"uppercase", letterSpacing:1 }}>Populära ämnen</div>
-          {["#V75Solvalla","#ATGLive","#Elitloppet","#Andelspel","#GaloppSolvalla"].map(tag=>(
-            <div key={tag} onClick={()=>setQuery(tag.slice(1))} style={{ padding:"10px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer", color:t.accent, fontWeight:600, fontSize:15 }}>{tag}</div>
+          <div style={{ fontSize:13, fontWeight:700, color:t.text3, marginBottom:12, textTransform:"uppercase", letterSpacing:1 }}>Sök i kategorier</div>
+          {CATEGORIES.filter(c=>c.id!=="all").map(c=>(
+            <div key={c.id} onClick={()=>setQuery(c.label)} style={{ padding:"10px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer", color:t.text, fontWeight:600, fontSize:15, display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ color:c.color }}>{c.icon}</span> {c.label}
+            </div>
           ))}
         </div>
       )}
@@ -822,12 +824,16 @@ export default function TrackTalk() {
           </main>
           <aside style={{ width:260, flexShrink:0, paddingTop:16, paddingLeft:16, position:"sticky", top:56, height:"calc(100vh - 56px)", overflowY:"auto" }}>
             <div style={{ fontSize:12, fontWeight:700, color:t.text3, marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Trendande 🔥</div>
-            {["#V75Solvalla","#ATGLive","#Elitloppet","#Andelspel","#GaloppSolvalla"].map((tag,i)=>(
-              <div key={tag} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
-                <div style={{ fontWeight:700, fontSize:14, color:t.accent }}>{tag}</div>
-                <div style={{ fontSize:11, color:t.text3 }}>{[2341,1892,984,451,312][i].toLocaleString()} inlägg</div>
-              </div>
-            ))}
+            {posts.length===0 && <div style={{ fontSize:13, color:t.text3 }}>Inga trender ännu</div>}
+            {posts.slice(0,5).map((p,i)=>{
+              const cat = CATEGORIES.find(c=>c.id===p.category);
+              return (
+                <div key={i} onClick={()=>setTab("search")} style={{ padding:"8px 0", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:t.accent }}>{cat?.icon} {cat?.label}</div>
+                  <div style={{ fontSize:12, color:t.text, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.content?.slice(0,40)}…</div>
+                </div>
+              );
+            })}
           </aside>
         </div>
       ) : (
