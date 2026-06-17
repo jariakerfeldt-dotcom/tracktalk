@@ -366,15 +366,71 @@ function SearchView({ t, currentUser, onProfile }) {
   );
 }
 
-function ProfileView({ username, currentUser, t, onBack }) {
+function FollowListModal({ title, userIds, t, onClose, onProfile }) {
+  const [users, setUsers] = useState([]);
+  useEffect(()=>{
+    if(!userIds.length){ setUsers([]); return; }
+    supabase.from("profiles").select("*").in("id", userIds).then(({data})=>{ if(data) setUsers(data); });
+  },[userIds]);
+  return (
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"#000A", zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:t.surface, borderRadius:20, width:"100%", maxWidth:380, maxHeight:"70vh", overflowY:"auto", border:`1px solid ${t.border2}` }}>
+        <div style={{ padding:"14px 16px", borderBottom:`1px solid ${t.border}`, display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:t.surface }}>
+          <span style={{ fontWeight:700, color:t.text, fontSize:16 }}>{title}</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:t.text3, cursor:"pointer", fontSize:18 }}>✕</button>
+        </div>
+        {users.length===0 && <div style={{ padding:30, textAlign:"center", color:t.text3 }}>Inga än</div>}
+        {users.map(u=>(
+          <div key={u.id} onClick={()=>{onProfile(u.name);onClose();}} style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 16px", borderBottom:`1px solid ${t.border}`, cursor:"pointer" }}>
+            <Avatar user={u} size={38} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontWeight:700, fontSize:14, color:t.text }}>{u.name} {u.verified&&<span style={{ color:t.accent }}>✓</span>}</div>
+              <div style={{ fontSize:12, color:t.text3 }}>{u.handle}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProfileView({ username, currentUser, t, onBack, onProfile }) {
   const [posts, setPosts] = useState([]);
   const [profile, setProfile] = useState(null);
   const [following, setFollowing] = useState(false);
+  const [followerIds, setFollowerIds] = useState([]);
+  const [followingIds, setFollowingIds] = useState([]);
+  const [listModal, setListModal] = useState(null); // "followers" | "following" | null
+
+  const loadCounts = (profileId) => {
+    supabase.from("follows").select("follower_id").eq("following_id", profileId).then(({data})=>{ if(data) setFollowerIds(data.map(d=>d.follower_id)); });
+    supabase.from("follows").select("following_id").eq("follower_id", profileId).then(({data})=>{ if(data) setFollowingIds(data.map(d=>d.following_id)); });
+  };
 
   useEffect(()=>{
-    supabase.from("profiles").select("*").eq("name", username).single().then(({data})=>{ if(data) setProfile(data); });
+    supabase.from("profiles").select("*").eq("name", username).single().then(({data})=>{
+      if(data){ setProfile(data); loadCounts(data.id); }
+    });
     supabase.from("posts").select("*").eq("author", username).order("created_at",{ascending:false}).then(({data})=>{ if(data) setPosts(data); });
   },[username]);
+
+  useEffect(()=>{
+    if(!profile || !currentUser || profile.id===currentUser.id) return;
+    supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", profile.id).maybeSingle().then(({data})=>{ setFollowing(!!data); });
+  },[profile, currentUser]);
+
+  const toggleFollow = async () => {
+    if(!currentUser || !profile) return;
+    if(following) {
+      await supabase.from("follows").delete().eq("follower_id", currentUser.id).eq("following_id", profile.id);
+      setFollowing(false);
+      setFollowerIds(ids=>ids.filter(id=>id!==currentUser.id));
+    } else {
+      await supabase.from("follows").insert({ follower_id: currentUser.id, following_id: profile.id });
+      setFollowing(true);
+      setFollowerIds(ids=>[...ids, currentUser.id]);
+    }
+  };
 
   const avatar = profile?.avatar || username.slice(0,2).toUpperCase();
   return (
@@ -392,21 +448,29 @@ function ProfileView({ username, currentUser, t, onBack }) {
               onUpload={(url)=>setProfile(p=>({...p, avatar_url:url}))}
               t={t} />
           </div>
-          {username !== currentUser?.name && (
-            <button onClick={()=>setFollowing(f=>!f)} style={{ background:following?t.accentBg:t.accent, border:`1px solid ${t.accent}`, color:following?t.accent:"#0A1A0F", fontWeight:700, padding:"8px 20px", borderRadius:20, cursor:"pointer", fontSize:14 }}>{following?"Följer ✓":"Följ"}</button>
+          {profile && currentUser && profile.id !== currentUser.id && (
+            <button onClick={toggleFollow} style={{ background:following?t.accentBg:t.accent, border:`1px solid ${t.accent}`, color:following?t.accent:"#0A1A0F", fontWeight:700, padding:"8px 20px", borderRadius:20, cursor:"pointer", fontSize:14 }}>{following?"Följer ✓":"Följ"}</button>
           )}
         </div>
         <div style={{ marginTop:10 }}>
           <div style={{ fontWeight:800, fontSize:18, color:t.text }}>{username}</div>
           {profile?.bio && <p style={{ margin:"6px 0 10px", fontSize:14, color:t.text2, lineHeight:1.5 }}>{profile.bio}</p>}
           <div style={{ display:"flex", gap:20 }}>
-            <span style={{ fontSize:13, color:t.text2 }}><strong style={{ color:t.text }}>{profile?.followers||0}</strong> följare</span>
+            <span onClick={()=>setListModal("followers")} style={{ fontSize:13, color:t.text2, cursor:"pointer" }}><strong style={{ color:t.text }}>{followerIds.length}</strong> följare</span>
+            <span onClick={()=>setListModal("following")} style={{ fontSize:13, color:t.text2, cursor:"pointer" }}><strong style={{ color:t.text }}>{followingIds.length}</strong> följer</span>
             <span style={{ fontSize:13, color:t.text2 }}><strong style={{ color:t.text }}>{posts.length}</strong> inlägg</span>
           </div>
         </div>
       </div>
       {posts.length===0 ? <div style={{ padding:40, textAlign:"center", color:t.text3 }}><div style={{ fontSize:40 }}>📝</div><p>Inga inlägg ännu</p></div>
       : posts.map(p=><Post key={p.id} post={p} currentUser={currentUser} t={t} />)}
+      {listModal && (
+        <FollowListModal
+          title={listModal==="followers"?"Följare":"Följer"}
+          userIds={listModal==="followers"?followerIds:followingIds}
+          t={t} onClose={()=>setListModal(null)} onProfile={onProfile}
+        />
+      )}
     </div>
   );
 }
@@ -726,7 +790,7 @@ export default function TrackTalk() {
             {tab==="feed" && renderFeed()}
             {tab==="search" && <SearchView t={t} currentUser={currentUser} onProfile={handleProfile} />}
             {tab==="dm" && <DMView currentUser={currentUser} t={t} />}
-            {(tab==="me"||tab==="profile") && <ProfileView username={profileUser||profile?.name} currentUser={currentUser} t={t} onBack={()=>setTab("feed")} />}
+            {(tab==="me"||tab==="profile") && <ProfileView username={profileUser||profile?.name} currentUser={currentUser} t={t} onBack={()=>setTab("feed")} onProfile={handleProfile} />}
           </main>
           <aside style={{ width:260, flexShrink:0, paddingTop:16, paddingLeft:16, position:"sticky", top:56, height:"calc(100vh - 56px)", overflowY:"auto" }}>
             <div style={{ fontSize:12, fontWeight:700, color:t.text3, marginBottom:10, letterSpacing:1, textTransform:"uppercase" }}>Trendande 🔥</div>
@@ -743,7 +807,7 @@ export default function TrackTalk() {
           {tab==="feed" && renderFeed()}
           {tab==="search" && <SearchView t={t} currentUser={currentUser} onProfile={handleProfile} />}
           {tab==="dm" && <DMView currentUser={currentUser} t={t} />}
-          {(tab==="me"||tab==="profile") && <ProfileView username={profileUser||profile?.name} currentUser={currentUser} t={t} onBack={()=>setTab("feed")} />}
+          {(tab==="me"||tab==="profile") && <ProfileView username={profileUser||profile?.name} currentUser={currentUser} t={t} onBack={()=>setTab("feed")} onProfile={handleProfile} />}
         </div>
       )}
 
