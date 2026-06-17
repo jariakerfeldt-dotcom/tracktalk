@@ -514,6 +514,10 @@ function RegisterModal({ onDone }) {
       const { data, error } = await supabase.auth.signUp({ email:form.email, password:form.pass, options:{ data:{ name:form.name } } });
       setLoading(false);
       if(error){setErr(error.message);return;}
+      if(data?.user) {
+        const avatar = form.name.slice(0,2).toUpperCase();
+        await supabase.from("profiles").insert({ id:data.user.id, name:form.name, avatar, handle:`@${form.name.toLowerCase().replace(/\s/g,"_")}`, avatar_url:null });
+      }
       setStep(2);
       return;
     }
