@@ -28,6 +28,65 @@ const GIF_LIST = [
 const avatarColors = ["#C9A84C","#4CAF50","#2196F3","#00897B","#E53935","#8E24AA","#FB8C00","#607D8B"];
 const avatarColor = (s) => avatarColors[(s||"X").charCodeAt(0) % avatarColors.length];
 
+// ─── LINKS ───────────────────────────────────────────────────────────────────
+const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+function extractFirstUrl(text) {
+  if (!text) return null;
+  const m = text.match(URL_REGEX);
+  return m ? m[0] : null;
+}
+
+function LinkedText({ text, t }) {
+  if (!text) return null;
+  const parts = text.split(URL_REGEX);
+  return (
+    <>
+      {parts.map((part, i) =>
+        URL_REGEX.test(part) && part.startsWith("http")
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{ color:t.accent, textDecoration:"underline", wordBreak:"break-all" }}>{part}</a>
+          : <span key={i}>{part}</span>
+      )}
+    </>
+  );
+}
+
+function LinkPreview({ url, t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+      .then(r => r.json())
+      .then(d => { if (active && !d.error) setData(d); })
+      .catch(() => {})
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [url]);
+
+  if (loading) return (
+    <div style={{ border:`1px solid ${t.border2}`, borderRadius:14, padding:12, marginBottom:10, color:t.text3, fontSize:13 }}>Hämtar förhandsvisning…</div>
+  );
+  if (!data) return null;
+
+  return (
+    <a href={data.url} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()}
+      style={{ display:"block", border:`1px solid ${t.border2}`, borderRadius:14, overflow:"hidden", marginBottom:10, textDecoration:"none", background:t.surface2 }}>
+      {data.image && (
+        <div style={{ width:"100%", maxHeight:220, overflow:"hidden", background:t.border }}>
+          <img src={data.image} alt="" style={{ width:"100%", maxHeight:220, objectFit:"cover", display:"block" }} onError={e=>{e.target.style.display="none";}} />
+        </div>
+      )}
+      <div style={{ padding:"10px 14px" }}>
+        <div style={{ fontSize:11, color:t.text3, textTransform:"uppercase", letterSpacing:0.5, marginBottom:4 }}>{data.siteName}</div>
+        <div style={{ fontSize:14, fontWeight:700, color:t.text, marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{data.title}</div>
+        {data.description && <div style={{ fontSize:13, color:t.text2, overflow:"hidden", textOverflow:"ellipsis", display:"-webkit-box", WebkitLineClamp:2, WebkitBoxOrient:"vertical" }}>{data.description}</div>}
+      </div>
+    </a>
+  );
+}
+
 // ─── AVATAR UPLOAD ───────────────────────────────────────────────────────────
 function Avatar({ user, size=40, onClick, uploadable=false, onUpload, t }) {
   const fileRef = useRef();
@@ -223,6 +282,7 @@ function ComposeBox({ onPost, currentUser, t }) {
         <Avatar user={currentUser} size={38} />
         <div style={{ flex:1, minWidth:0 }}>
           <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Vad händer i travvärlden?" style={{ width:"100%", background:t.input, border:`1px solid ${t.border2}`, borderRadius:12, padding:"10px 12px", color:t.text, fontSize:15, resize:"none", minHeight:70, outline:"none", boxSizing:"border-box", fontFamily:"inherit" }} />
+          {extractFirstUrl(text) && <LinkPreview url={extractFirstUrl(text)} t={t} />}
           {mediaFiles.length>0 && (
             <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:8 }}>
               {mediaFiles.map((m,i)=>(
@@ -292,7 +352,8 @@ function Post({ post, currentUser, t, onProfile }) {
           <div style={{ marginBottom:6 }}>
             <span style={{ background:`${cat?.color||t.accent}22`, color:cat?.color||t.accent, border:`1px solid ${cat?.color||t.accent}44`, borderRadius:20, padding:"2px 9px", fontSize:11, fontWeight:600 }}>{cat?.icon} {cat?.label}</span>
           </div>
-          {post.content && <p style={{ margin:"0 0 10px", fontSize:14, lineHeight:1.55, color:t.text, wordBreak:"break-word" }}>{post.content}</p>}
+          {post.content && <p style={{ margin:"0 0 10px", fontSize:14, lineHeight:1.55, color:t.text, wordBreak:"break-word" }}><LinkedText text={post.content} t={t} /></p>}
+          {extractFirstUrl(post.content) && <LinkPreview url={extractFirstUrl(post.content)} t={t} />}
           <MediaGrid media={media} onExpand={i=>setLightbox(i)} />
           <div style={{ display:"flex", gap:0, marginTop:4 }}>
             <button onClick={e=>{e.stopPropagation();setShowComments(s=>!s);}} style={{ background:"none", border:"none", color:t.text3, cursor:"pointer", display:"flex", alignItems:"center", gap:4, fontSize:13, padding:"4px 10px", borderRadius:20, flex:1, justifyContent:"center" }}>💬</button>
