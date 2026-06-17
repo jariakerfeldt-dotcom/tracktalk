@@ -308,6 +308,42 @@ function Post({ post, currentUser, t, onProfile }) {
   );
 }
 
+function SearchUserRow({ user, currentUser, t, onProfile }) {
+  const [following, setFollowing] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(()=>{
+    if(!currentUser || user.id===currentUser.id) { setLoaded(true); return; }
+    supabase.from("follows").select("*").eq("follower_id", currentUser.id).eq("following_id", user.id).maybeSingle().then(({data})=>{ setFollowing(!!data); setLoaded(true); });
+  },[currentUser, user.id]);
+
+  const toggleFollow = async (e) => {
+    e.stopPropagation();
+    if(!currentUser) return;
+    if(following) {
+      await supabase.from("follows").delete().eq("follower_id", currentUser.id).eq("following_id", user.id);
+      setFollowing(false);
+    } else {
+      await supabase.from("follows").insert({ follower_id: currentUser.id, following_id: user.id });
+      setFollowing(true);
+    }
+  };
+
+  return (
+    <div onClick={()=>onProfile&&onProfile(user.name)} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", borderBottom:`1px solid ${t.border}`, cursor:"pointer", background:t.bg }} onMouseEnter={e=>e.currentTarget.style.background=t.surface2} onMouseLeave={e=>e.currentTarget.style.background=t.bg}>
+      <Avatar user={user} size={46} />
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontWeight:700, fontSize:15, color:t.text }}>{user.name} {user.verified&&<span style={{ color:t.accent }}>✓</span>}</div>
+        <div style={{ fontSize:13, color:t.text3 }}>{user.handle}</div>
+        {user.bio&&<div style={{ fontSize:13, color:t.text2, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{user.bio}</div>}
+      </div>
+      {currentUser && user.id!==currentUser.id && loaded && (
+        <button onClick={toggleFollow} style={{ background:following?t.accentBg:t.accent, border:`1px solid ${t.accent}`, color:following?t.accent:"#0A1A0F", borderRadius:20, padding:"6px 14px", cursor:"pointer", fontSize:13, fontWeight:700, flexShrink:0 }}>{following?"Följer ✓":"Följ"}</button>
+      )}
+    </div>
+  );
+}
+
 function SearchView({ t, currentUser, onProfile }) {
   const [query, setQuery] = useState("");
   const [postResults, setPostResults] = useState([]);
@@ -350,15 +386,7 @@ function SearchView({ t, currentUser, onProfile }) {
           {searchTab==="posts" && postResults.map(p=><Post key={p.id} post={p} currentUser={currentUser} t={t} onProfile={onProfile} />)}
           {searchTab==="users" && userResults.length===0 && <div style={{ padding:40, textAlign:"center", color:t.text3 }}><div style={{ fontSize:40 }}>👤</div><p>Inga användare hittades</p></div>}
           {searchTab==="users" && userResults.map(u=>(
-            <div key={u.id} onClick={()=>onProfile&&onProfile(u.name)} style={{ display:"flex", alignItems:"center", gap:12, padding:"14px 16px", borderBottom:`1px solid ${t.border}`, cursor:"pointer", background:t.bg }} onMouseEnter={e=>e.currentTarget.style.background=t.surface2} onMouseLeave={e=>e.currentTarget.style.background=t.bg}>
-              <div style={{ width:46, height:46, borderRadius:"50%", background:avatarColor(u.avatar||u.name?.slice(0,2)), display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, fontWeight:700, color:"#0A1A0F", flexShrink:0 }}>{u.avatar||u.name?.slice(0,2).toUpperCase()}</div>
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontWeight:700, fontSize:15, color:t.text }}>{u.name} {u.verified&&<span style={{ color:t.accent }}>✓</span>}</div>
-                <div style={{ fontSize:13, color:t.text3 }}>{u.handle}</div>
-                {u.bio&&<div style={{ fontSize:13, color:t.text2, marginTop:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{u.bio}</div>}
-              </div>
-              <button onClick={e=>{e.stopPropagation();}} style={{ background:t.accentBg, border:`1px solid ${t.accent}44`, color:t.accent, borderRadius:20, padding:"6px 14px", cursor:"pointer", fontSize:13, fontWeight:600, flexShrink:0 }}>Följ</button>
-            </div>
+            <SearchUserRow key={u.id} user={u} currentUser={currentUser} t={t} onProfile={onProfile} />
           ))}
         </div>
       )}
